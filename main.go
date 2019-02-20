@@ -23,7 +23,7 @@ func main() {
 		},
 	}
 	app.Action = func(c *cli.Context) error {
-		return server.Start(c)
+		return server.Start(c.String("github-base-url"), c.String("github-upload-url"), c.String("team"))
 	}
 
 	err := app.Run(os.Args)

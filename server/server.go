@@ -5,13 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/go-github/v24/github"
-	"github.com/urfave/cli"
 	"golang.org/x/oauth2"
 	"log"
 	"net/http"
 )
 
-func Start(c *cli.Context) error {
+func Start(baseUrl string, uploadUrl string, team string) error {
 	fmt.Println("[DEBUG] Start")
 	http.HandleFunc("/webhook", func(rw http.ResponseWriter, req *http.Request) {
 		log.Println("[DEBUG] received")
@@ -29,12 +28,12 @@ func Start(c *cli.Context) error {
 		)
 		tc := oauth2.NewClient(ctx, ts)
 
-		user, err := getUserInfo(c.String("github-base-url"), areq.Spec.Token)
+		user, err := getUserInfo(baseUrl, areq.Spec.Token)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		client, err := github.NewEnterpriseClient(c.String("github-base-url"), c.String("github-upload-url"), tc)
+		client, err := github.NewEnterpriseClient(baseUrl, uploadUrl, tc)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -50,7 +49,7 @@ func Start(c *cli.Context) error {
 				Authenticated: true,
 				User: User{
 					Username: *user.Login,
-					Groups:   teams[c.String("team")],
+					Groups:   teams[team],
 				},
 			},
 		}
