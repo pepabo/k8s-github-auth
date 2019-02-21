@@ -19,7 +19,7 @@ func Start(baseUrl string, uploadUrl string, team string) error {
 		var areq AuthenticationRequest
 		err := decoder.Decode(&areq)
 		if err != nil {
-			log.Fatal(err)
+			http.Error(rw, "Failed to decode request body.", 401)
 		}
 
 		ctx := context.Background()
@@ -30,16 +30,16 @@ func Start(baseUrl string, uploadUrl string, team string) error {
 
 		user, err := getUserInfo(baseUrl, areq.Spec.Token)
 		if err != nil {
-			log.Fatal(err)
+			http.Error(rw, fmt.Sprintf("Failed to get user info: %s", err.Error()), 401)
 		}
 
 		client, err := github.NewEnterpriseClient(baseUrl, uploadUrl, tc)
 		if err != nil {
-			log.Fatal(err)
+			http.Error(rw, fmt.Sprintf("Failed to create github client: %s", err.Error()), 401)
 		}
 		teams, err := getTeams(ctx, client)
 		if err != nil {
-			log.Fatal(err)
+			http.Error(rw, fmt.Sprintf("Failed to get teams: %s", err.Error()), 401)
 		}
 
 		aresp := &AuthenticationResponse{
@@ -55,9 +55,8 @@ func Start(baseUrl string, uploadUrl string, team string) error {
 		}
 		respBytes, err := json.Marshal(aresp)
 		if err != nil {
-			log.Fatal(err)
+			http.Error(rw, fmt.Sprintf("Failed to marshal: %s", err.Error()), 401)
 		}
-		log.Printf("[DEBUG] resp: %s\n", string(respBytes))
 		fmt.Fprint(rw, string(respBytes))
 	})
 
