@@ -17,4 +17,4 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /
 COPY --from=build /go/src/github.com/takaishi/k8s-github-auth/k8s-github-auth /k8s-github-auth
 
-ENTRYPOINT ["k8s-github-auth"]
+ENTRYPOINT ["/k8s-github-auth"]
