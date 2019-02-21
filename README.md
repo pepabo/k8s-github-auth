@@ -83,3 +83,13 @@ set credential:
 $ kubectl config set-credentials test --token=tokentokentoken
 ```
 
+## Update Image
+
+```
+$ docker build -t rtakaishi/k8s-github-auth .
+```
+
+```
+$ docker push rtakaishi/k8s-github-auth
+```
+
