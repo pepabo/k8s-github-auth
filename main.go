@@ -25,7 +25,7 @@ func main() {
 	app.Action = func(c *cli.Context) error {
 		baseUrl := c.String("github-base-url")
 		uploadUrl := c.String("github-upload-url")
-		team := c.String("team")
+		org := c.String("organization")
 
 		if os.Getenv("GITHUB_BASE_URL") != "" {
 			baseUrl = os.Getenv("GITHUB_BASE_URL")
@@ -36,10 +36,10 @@ func main() {
 		}
 
 		if os.Getenv("ORGANIZATION") != "" {
-			baseUrl = os.Getenv("ORGANIZATION")
+			org = os.Getenv("ORGANIZATION")
 		}
 
-		return server.Start(baseUrl, uploadUrl, team)
+		return server.Start(baseUrl, uploadUrl, org)
 	}
 
 	err := app.Run(os.Args)

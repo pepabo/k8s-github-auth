@@ -10,8 +10,8 @@ import (
 	"net/http"
 )
 
-func Start(baseUrl string, uploadUrl string, team string) error {
-	fmt.Println("[DEBUG] Start")
+func Start(baseUrl string, uploadUrl string, org string) error {
+	log.Printf("[INFO] START: baseUrl: %s, uploadUrl: %s, org: %s", baseUrl, uploadUrl, org)
 	http.HandleFunc("/webhook", func(rw http.ResponseWriter, req *http.Request) {
 		log.Println("[DEBUG] received")
 		decoder := json.NewDecoder(req.Body)
@@ -49,7 +49,7 @@ func Start(baseUrl string, uploadUrl string, team string) error {
 				Authenticated: true,
 				User: User{
 					Username: *user.Login,
-					Groups:   teams[team],
+					Groups:   teams[org],
 				},
 			},
 		}
