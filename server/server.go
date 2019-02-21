@@ -60,7 +60,7 @@ func Start(baseUrl string, uploadUrl string, org string) error {
 		fmt.Fprint(rw, string(respBytes))
 	})
 
-	err := http.ListenAndServe("localhost:8443", nil)
+	err := http.ListenAndServe("0.0.0.0:8443", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
