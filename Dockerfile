@@ -1,4 +1,4 @@
-FROM golang:1.11.5 as build
+FROM golang:1.12.0 as build
 
 ENV GOPATH=/go
 ENV PATH=$GOPATH/bin:$PATH
