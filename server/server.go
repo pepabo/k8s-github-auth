@@ -126,7 +126,7 @@ func getTeams(ctx context.Context, client *github.Client) (map[string][]string, 
 	for {
 		tmpTeams, resp, err := client.Teams.ListUserTeams(ctx, listOpt)
 		if err != nil {
-			return resp, err
+			return map[string][]string{}, err
 		}
 
 		teams = append(teams, tmpTeams...)
