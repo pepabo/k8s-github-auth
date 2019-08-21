@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/google/go-github/v24/github"
-	"golang.org/x/oauth2"
 	"log"
 	"net/http"
+
+	"github.com/google/go-github/v24/github"
+	"golang.org/x/oauth2"
 )
 
 func Start(baseUrl string, uploadUrl string, org string) error {
@@ -31,6 +32,10 @@ func Start(baseUrl string, uploadUrl string, org string) error {
 		user, err := getUserInfo(baseUrl, areq.Spec.Token)
 		if err != nil {
 			http.Error(rw, fmt.Sprintf("Failed to get user info: %s", err.Error()), 401)
+		}
+
+		if user.Login == nil {
+			http.Error(rw, "Failed to get user info", 401)
 		}
 
 		client, err := github.NewEnterpriseClient(baseUrl, uploadUrl, tc)
