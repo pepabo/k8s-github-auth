@@ -11,12 +11,28 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func gheClient(ctx context.Context, token string, baseUrl string, uploadUrl string) (*github.Client, error) {
+func NewGHEClient(baseURL, uploadURL string) *GHEClient {
+	return &GHEClient{baseURL: baseURL, uploadURL: uploadURL}
+}
+
+type GHEClient struct {
+	baseURL   string
+	uploadURL string
+	client    *github.Client
+}
+
+func (c *GHEClient) Login(ctx context.Context, token string) error {
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)
 	tc := oauth2.NewClient(ctx, ts)
-	return github.NewEnterpriseClient(baseUrl, uploadUrl, tc)
+	client, err := github.NewEnterpriseClient(c.baseURL, c.uploadURL, tc)
+	if err != nil {
+		return err
+	}
+	c.client = client
+
+	return nil
 }
 
 func Start(baseUrl string, uploadUrl string, org string) error {
@@ -35,16 +51,17 @@ func Start(baseUrl string, uploadUrl string, org string) error {
 		if err != nil {
 			http.Error(rw, fmt.Sprintf("Failed to get user info: %s", err.Error()), 401)
 		}
-		client, err := gheClient(req.Context(), areq.Spec.Token, baseUrl, uploadUrl)
-		if err != nil {
-			http.Error(rw, fmt.Sprintf("Failed to create GHE client: %s", err.Error()), 401)
-		}
-
 		if user.Login == nil {
 			http.Error(rw, "Failed to get user info", 401)
 		}
 
-		teams, err := getTeams(req.Context(), client)
+		gheClient := NewGHEClient(baseUrl, uploadUrl)
+		err = gheClient.Login(req.Context(), areq.Spec.Token)
+		if err != nil {
+			http.Error(rw, fmt.Sprintf("Failed to login to GHE: %s", err.Error()), 401)
+		}
+
+		teams, err := gheClient.getTeams(req.Context())
 		if err != nil {
 			http.Error(rw, fmt.Sprintf("Failed to get teams: %s", err.Error()), 401)
 		}
@@ -94,7 +111,7 @@ func getUserInfo(github_base_url string, token string) (github.User, error) {
 	return u, nil
 }
 
-func getTeams(ctx context.Context, client *github.Client) (map[string][]string, error) {
+func (c *GHEClient) getTeams(ctx context.Context) (map[string][]string, error) {
 	listOpt := &github.ListOptions{
 		PerPage: 100,
 	}
@@ -102,7 +119,7 @@ func getTeams(ctx context.Context, client *github.Client) (map[string][]string, 
 	resp := map[string][]string{}
 
 	for {
-		tmpTeams, resp, err := client.Teams.ListUserTeams(ctx, listOpt)
+		tmpTeams, resp, err := c.client.Teams.ListUserTeams(ctx, listOpt)
 		if err != nil {
 			return map[string][]string{}, err
 		}
