@@ -11,6 +11,14 @@ import (
 	"golang.org/x/oauth2"
 )
 
+func gheClient(ctx context.Context, token string, baseUrl string, uploadUrl string) (*github.Client, error) {
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: token},
+	)
+	tc := oauth2.NewClient(ctx, ts)
+	return github.NewEnterpriseClient(baseUrl, uploadUrl, tc)
+}
+
 func Start(baseUrl string, uploadUrl string, org string) error {
 	log.Printf("[INFO] START: baseUrl: %s, uploadUrl: %s, org: %s", baseUrl, uploadUrl, org)
 	http.HandleFunc("/webhook", func(rw http.ResponseWriter, req *http.Request) {
@@ -23,26 +31,20 @@ func Start(baseUrl string, uploadUrl string, org string) error {
 			http.Error(rw, "Failed to decode request body.", 401)
 		}
 
-		ctx := context.Background()
-		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: areq.Spec.Token},
-		)
-		tc := oauth2.NewClient(ctx, ts)
-
 		user, err := getUserInfo(baseUrl, areq.Spec.Token)
 		if err != nil {
 			http.Error(rw, fmt.Sprintf("Failed to get user info: %s", err.Error()), 401)
+		}
+		client, err := gheClient(req.Context(), areq.Spec.Token, baseUrl, uploadUrl)
+		if err != nil {
+			http.Error(rw, fmt.Sprintf("Failed to create GHE client: %s", err.Error()), 401)
 		}
 
 		if user.Login == nil {
 			http.Error(rw, "Failed to get user info", 401)
 		}
 
-		client, err := github.NewEnterpriseClient(baseUrl, uploadUrl, tc)
-		if err != nil {
-			http.Error(rw, fmt.Sprintf("Failed to create github client: %s", err.Error()), 401)
-		}
-		teams, err := getTeams(ctx, client)
+		teams, err := getTeams(req.Context(), client)
 		if err != nil {
 			http.Error(rw, fmt.Sprintf("Failed to get teams: %s", err.Error()), 401)
 		}
