@@ -101,6 +101,15 @@ func getUserInfo(github_base_url string, token string) (github.User, error) {
 	if err != nil {
 		return u, err
 	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return u, errors.New("Faield to read response body")
+		}
+		return u, errors.New(string(b))
+	}
 
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(&u)
