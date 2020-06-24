@@ -11,6 +11,30 @@ import (
 	"golang.org/x/oauth2"
 )
 
+func NewGHEClient(baseURL, uploadURL string) *GHEClient {
+	return &GHEClient{baseURL: baseURL, uploadURL: uploadURL}
+}
+
+type GHEClient struct {
+	baseURL   string
+	uploadURL string
+	client    *github.Client
+}
+
+func (c *GHEClient) Login(ctx context.Context, token string) error {
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: token},
+	)
+	tc := oauth2.NewClient(ctx, ts)
+	client, err := github.NewEnterpriseClient(c.baseURL, c.uploadURL, tc)
+	if err != nil {
+		return err
+	}
+	c.client = client
+
+	return nil
+}
+
 func Start(baseUrl string, uploadUrl string, org string) error {
 	log.Printf("[INFO] START: baseUrl: %s, uploadUrl: %s, org: %s", baseUrl, uploadUrl, org)
 	http.HandleFunc("/webhook", func(rw http.ResponseWriter, req *http.Request) {
@@ -23,26 +47,21 @@ func Start(baseUrl string, uploadUrl string, org string) error {
 			http.Error(rw, "Failed to decode request body.", 401)
 		}
 
-		ctx := context.Background()
-		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: areq.Spec.Token},
-		)
-		tc := oauth2.NewClient(ctx, ts)
-
 		user, err := getUserInfo(baseUrl, areq.Spec.Token)
 		if err != nil {
 			http.Error(rw, fmt.Sprintf("Failed to get user info: %s", err.Error()), 401)
 		}
-
 		if user.Login == nil {
 			http.Error(rw, "Failed to get user info", 401)
 		}
 
-		client, err := github.NewEnterpriseClient(baseUrl, uploadUrl, tc)
+		gheClient := NewGHEClient(baseUrl, uploadUrl)
+		err = gheClient.Login(req.Context(), areq.Spec.Token)
 		if err != nil {
-			http.Error(rw, fmt.Sprintf("Failed to create github client: %s", err.Error()), 401)
+			http.Error(rw, fmt.Sprintf("Failed to login to GHE: %s", err.Error()), 401)
 		}
-		teams, err := getTeams(ctx, client)
+
+		teams, err := gheClient.getTeams(req.Context())
 		if err != nil {
 			http.Error(rw, fmt.Sprintf("Failed to get teams: %s", err.Error()), 401)
 		}
@@ -72,35 +91,6 @@ func Start(baseUrl string, uploadUrl string, org string) error {
 	return nil
 }
 
-type AuthenticationRequest struct {
-	ApiVersion string                 `json:"apiVersion"`
-	Kind       string                 `json:"kind"`
-	Metadata   map[string]interface{} `json:"metadata"`
-	Spec       struct {
-		Token string `json:"token"`
-	}
-	Status struct {
-		User map[string]interface{} `json:"user"`
-	}
-}
-
-type AuthenticationResponse struct {
-	ApiVersion string `json:"apiVersion"`
-	Kind       string `json:"kind"`
-	Status     Status `json:"status"`
-}
-
-type Status struct {
-	Authenticated bool `json:"authenticated"`
-	User          User `json:"user"`
-}
-
-type User struct {
-	Groups   []string `json:"groups"`
-	UID      string   `json:"uid"`
-	Username string   `json:"username"`
-}
-
 func getUserInfo(github_base_url string, token string) (github.User, error) {
 	var u github.User
 	req, _ := http.NewRequest("GET", github_base_url+"/user", nil)
@@ -121,7 +111,7 @@ func getUserInfo(github_base_url string, token string) (github.User, error) {
 	return u, nil
 }
 
-func getTeams(ctx context.Context, client *github.Client) (map[string][]string, error) {
+func (c *GHEClient) getTeams(ctx context.Context) (map[string][]string, error) {
 	listOpt := &github.ListOptions{
 		PerPage: 100,
 	}
@@ -129,7 +119,7 @@ func getTeams(ctx context.Context, client *github.Client) (map[string][]string, 
 	resp := map[string][]string{}
 
 	for {
-		tmpTeams, resp, err := client.Teams.ListUserTeams(ctx, listOpt)
+		tmpTeams, resp, err := c.client.Teams.ListUserTeams(ctx, listOpt)
 		if err != nil {
 			return map[string][]string{}, err
 		}
