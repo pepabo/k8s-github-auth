@@ -3,12 +3,13 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
-	"net/http"
-
 	"github.com/google/go-github/v24/github"
 	"golang.org/x/oauth2"
+	"io/ioutil"
+	"log"
+	"net/http"
 )
 
 func NewGHEClient(baseURL, uploadURL string) *GHEClient {
@@ -45,25 +46,35 @@ func Start(baseUrl string, uploadUrl string, org string) error {
 		err := decoder.Decode(&areq)
 		if err != nil {
 			http.Error(rw, "Failed to decode request body.", 401)
+			return
+		}
+
+		if areq.Spec.Token == "" {
+			http.Error(rw, "token is empty", 401)
+			return
 		}
 
 		user, err := getUserInfo(baseUrl, areq.Spec.Token)
 		if err != nil {
 			http.Error(rw, fmt.Sprintf("Failed to get user info: %s", err.Error()), 401)
+			return
 		}
 		if user.Login == nil {
 			http.Error(rw, "Failed to get user info", 401)
+			return
 		}
 
 		gheClient := NewGHEClient(baseUrl, uploadUrl)
 		err = gheClient.Login(req.Context(), areq.Spec.Token)
 		if err != nil {
 			http.Error(rw, fmt.Sprintf("Failed to login to GHE: %s", err.Error()), 401)
+			return
 		}
 
 		teams, err := gheClient.getTeams(req.Context())
 		if err != nil {
 			http.Error(rw, fmt.Sprintf("Failed to get teams: %s", err.Error()), 401)
+			return
 		}
 
 		aresp := &AuthenticationResponse{
@@ -80,6 +91,7 @@ func Start(baseUrl string, uploadUrl string, org string) error {
 		respBytes, err := json.Marshal(aresp)
 		if err != nil {
 			http.Error(rw, fmt.Sprintf("Failed to marshal: %s", err.Error()), 401)
+			return
 		}
 		fmt.Fprint(rw, string(respBytes))
 	})
