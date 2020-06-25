@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/google/go-github/v24/github"
 	"golang.org/x/oauth2"
+	"gopkg.in/square/go-jose.v2/jwt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -40,60 +41,47 @@ func Start(baseUrl string, uploadUrl string, org string) error {
 	log.Printf("[INFO] START: baseUrl: %s, uploadUrl: %s, org: %s", baseUrl, uploadUrl, org)
 	http.HandleFunc("/webhook", func(rw http.ResponseWriter, req *http.Request) {
 		log.Println("[DEBUG] received")
-		decoder := json.NewDecoder(req.Body)
 
-		var areq AuthenticationRequest
-		err := decoder.Decode(&areq)
+		user, teams, err := checkToken(baseUrl, uploadUrl, org, req)
 		if err != nil {
-			http.Error(rw, "Failed to decode request body.", 401)
-			return
+			http.Error(rw, err.Error(), 401)
 		}
-
-		if areq.Spec.Token == "" {
-			http.Error(rw, "token is empty", 401)
-			return
-		}
-
-		user, err := getUserInfo(baseUrl, areq.Spec.Token)
 		if err != nil {
-			http.Error(rw, fmt.Sprintf("Failed to get user info: %s", err.Error()), 401)
-			return
-		}
-		if user.Login == nil {
-			http.Error(rw, "Failed to get user info", 401)
-			return
-		}
-
-		gheClient := NewGHEClient(baseUrl, uploadUrl)
-		err = gheClient.Login(req.Context(), areq.Spec.Token)
-		if err != nil {
-			http.Error(rw, fmt.Sprintf("Failed to login to GHE: %s", err.Error()), 401)
-			return
-		}
-
-		teams, err := gheClient.getTeams(req.Context())
-		if err != nil {
-			http.Error(rw, fmt.Sprintf("Failed to get teams: %s", err.Error()), 401)
-			return
-		}
-
-		aresp := &AuthenticationResponse{
-			ApiVersion: "authentication.k8s.io/v1beta1",
-			Kind:       "TokenReview",
-			Status: Status{
-				Authenticated: true,
-				User: User{
-					Username: *user.Login,
-					Groups:   teams[org],
+			aresp := &AuthenticationResponse{
+				ApiVersion: "authentication.k8s.io/v1beta1",
+				Kind:       "TokenReview",
+				Status: Status{
+					Authenticated: false,
+					Error:         err.Error(),
 				},
-			},
+			}
+			respBytes, err := json.Marshal(aresp)
+			if err != nil {
+				http.Error(rw, fmt.Sprintf("Failed to marshal: %s", err.Error()), 401)
+				return
+			}
+			log.Printf("[DEBUG] %+v", aresp)
+			fmt.Fprint(rw, string(respBytes))
+		} else {
+			aresp := &AuthenticationResponse{
+				ApiVersion: "authentication.k8s.io/v1beta1",
+				Kind:       "TokenReview",
+				Status: Status{
+					Authenticated: true,
+					User: User{
+						Username: *user.Login,
+						Groups:   teams[org],
+					},
+				},
+			}
+			respBytes, err := json.Marshal(aresp)
+			if err != nil {
+				http.Error(rw, fmt.Sprintf("Failed to marshal: %s", err.Error()), 401)
+				return
+			}
+			log.Printf("[DEBUG] %+v", aresp)
+			fmt.Fprint(rw, string(respBytes))
 		}
-		respBytes, err := json.Marshal(aresp)
-		if err != nil {
-			http.Error(rw, fmt.Sprintf("Failed to marshal: %s", err.Error()), 401)
-			return
-		}
-		fmt.Fprint(rw, string(respBytes))
 	})
 
 	err := http.ListenAndServe("0.0.0.0:8443", nil)
@@ -160,4 +148,54 @@ func (c *GHEClient) getTeams(ctx context.Context) (map[string][]string, error) {
 	}
 
 	return resp, nil
+}
+
+func checkToken(baseUrl string, uploadUrl string, org string, req *http.Request) (github.User, map[string][]string, error) {
+	var areq AuthenticationRequest
+	var user github.User
+	var teams map[string][]string
+
+	decoder := json.NewDecoder(req.Body)
+	err := decoder.Decode(&areq)
+	if err != nil {
+		return user, teams, err
+	}
+
+	if areq.Spec.Token == "" {
+		return user, teams, errors.New("token is empty")
+	}
+	isjwt, _ := isJWT(areq.Spec.Token)
+	if isjwt {
+		return user, teams, errors.New("token is unsupported format (JWT).")
+	}
+
+	fmt.Printf("[DEBUG] areq: %+v\n", areq)
+	user, err = getUserInfo(baseUrl, areq.Spec.Token)
+	if err != nil {
+		return user, teams, errors.New(fmt.Sprintf("Failed to get user info: %s", err.Error()))
+	}
+
+	if user.Login == nil {
+		return user, teams, errors.New("Failed to get user info")
+	}
+
+	gheClient := NewGHEClient(baseUrl, uploadUrl)
+	err = gheClient.Login(req.Context(), areq.Spec.Token)
+	if err != nil {
+		return user, teams, fmt.Errorf("Failed to login to GHE: %s", err.Error())
+	}
+
+	teams, err = gheClient.getTeams(req.Context())
+	if err != nil {
+		return user, teams, fmt.Errorf("Failed to get teams: %s", err.Error())
+	}
+	return user, teams, nil
+}
+
+func isJWT(token string) (bool, error) {
+	_, err := jwt.ParseSigned(token)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }

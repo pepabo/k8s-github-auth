@@ -19,8 +19,9 @@ type AuthenticationResponse struct {
 }
 
 type Status struct {
-	Authenticated bool `json:"authenticated"`
-	User          User `json:"user"`
+	Authenticated bool   `json:"authenticated"`
+	User          User   `json:"user"`
+	Error         string `json:"string`
 }
 
 type User struct {
