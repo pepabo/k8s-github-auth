@@ -212,10 +212,7 @@ func checkToken(baseUrl string, uploadUrl string, org string, req *http.Request)
 		return user, teams, fmt.Errorf("Failed to login to GHE: %s", err.Error())
 	}
 
-	ctx := context.WithValue(req.Context(), "token", areq.Spec.Token)
-	req = req.WithContext(ctx)
-
-	teams, err = gheClient.getTeams(req.Context())
+	teams, err = gheClient.getTeams(context.WithValue(req.Context(), "token", areq.Spec.Token))
 	if err != nil {
 		return user, teams, fmt.Errorf("Failed to get teams: %s", err.Error())
 	}
