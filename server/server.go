@@ -37,7 +37,7 @@ func (c *GHEClient) Login(ctx context.Context, token string) error {
 	if err != nil {
 		return err
 	}
-	context.WithValue(ctx, "token", token)
+	ctx = context.WithValue(ctx, "token", token)
 	c.client = client
 
 	return nil
