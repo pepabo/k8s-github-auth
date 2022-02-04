@@ -5,6 +5,7 @@ ENV PATH=$GOPATH/bin:$PATH
 ENV CGO_ENABLED 0
 ENV GO111MODULE on
 
+RUN apt update -y && apt upgrade -y ca-certificates
 RUN mkdir -p /go/{src,bin,pkg}
 
 ADD . /go/src/github.com/takaishi/k8s-github-auth
