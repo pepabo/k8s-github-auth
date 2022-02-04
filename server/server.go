@@ -169,7 +169,11 @@ func (c *GHEClient) getTeams(ctx context.Context) (map[string][]string, error) {
 		resp[*team.Organization.Login] = append(resp[*team.Organization.Login], *team.Name)
 	}
 
-	cache.Set(cacheKey, resp, 10*time.Minute)
+	if cacheKey != "-teams" {
+		cache.Set(cacheKey, resp, 10*time.Minute)
+	} else {
+		log.Println("getTeams: invalid cache key")
+	}
 
 	return resp, nil
 }
