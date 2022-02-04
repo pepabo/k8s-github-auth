@@ -136,7 +136,11 @@ func getUserInfo(github_base_url string, token string) (github.User, error) {
 }
 
 func (c *GHEClient) getTeams(ctx context.Context) (map[string][]string, error) {
-	cacheKey := fmt.Sprintf("%s-teams", ctx.Value("token"))
+	token, ok := ctx.Value("token").(string)
+	if !ok {
+		return map[string][]string{}, fmt.Errorf("token not found")
+	}
+	cacheKey := fmt.Sprintf("%s-teams", token)
 	cacheResult, found := cache.Get(cacheKey)
 	if found {
 		log.Println("[DEBUG] cache hit getTeams")
@@ -169,11 +173,7 @@ func (c *GHEClient) getTeams(ctx context.Context) (map[string][]string, error) {
 		resp[*team.Organization.Login] = append(resp[*team.Organization.Login], *team.Name)
 	}
 
-	if cacheKey != "-teams" {
-		cache.Set(cacheKey, resp, 10*time.Minute)
-	} else {
-		log.Println("getTeams: invalid cache key")
-	}
+	cache.Set(cacheKey, resp, 10*time.Minute)
 
 	return resp, nil
 }
