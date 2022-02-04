@@ -5,13 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/go-github/v24/github"
-	"golang.org/x/oauth2"
-	"gopkg.in/square/go-jose.v2/jwt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
+
+	"github.com/google/go-github/v24/github"
+	gocache "github.com/patrickmn/go-cache"
+	"golang.org/x/oauth2"
+	"gopkg.in/square/go-jose.v2/jwt"
 )
+
+var cache = gocache.New(60*time.Minute, 90*time.Minute)
 
 func NewGHEClient(baseURL, uploadURL string) *GHEClient {
 	return &GHEClient{baseURL: baseURL, uploadURL: uploadURL}
@@ -21,6 +26,7 @@ type GHEClient struct {
 	baseURL   string
 	uploadURL string
 	client    *github.Client
+	token     string
 }
 
 func (c *GHEClient) Login(ctx context.Context, token string) error {
@@ -32,6 +38,7 @@ func (c *GHEClient) Login(ctx context.Context, token string) error {
 	if err != nil {
 		return err
 	}
+	c.token = token
 	c.client = client
 
 	return nil
@@ -92,6 +99,13 @@ func Start(baseUrl string, uploadUrl string, org string) error {
 }
 
 func getUserInfo(github_base_url string, token string) (github.User, error) {
+	cacheKey := fmt.Sprintf("%s-user", token)
+	cacheResult, found := cache.Get(cacheKey)
+	if found {
+		log.Printf("[DEBUG] cache hit value: %+v", cacheResult)
+		return cacheResult.(github.User), nil
+	}
+
 	var u github.User
 	req, _ := http.NewRequest("GET", github_base_url+"/user", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -117,10 +131,19 @@ func getUserInfo(github_base_url string, token string) (github.User, error) {
 		return u, err
 	}
 
+	cache.Set(cacheKey, u, gocache.DefaultExpiration)
+
 	return u, nil
 }
 
 func (c *GHEClient) getTeams(ctx context.Context) (map[string][]string, error) {
+	cacheKey := fmt.Sprintf("%s-teams", c.token)
+	cacheResult, found := cache.Get(cacheKey)
+	if found {
+		log.Printf("[DEBUG] cache hit value: %+v", cacheResult)
+		return cacheResult.(map[string][]string), nil
+	}
+
 	listOpt := &github.ListOptions{
 		PerPage: 100,
 	}
@@ -146,6 +169,8 @@ func (c *GHEClient) getTeams(ctx context.Context) (map[string][]string, error) {
 		}
 		resp[*team.Organization.Login] = append(resp[*team.Organization.Login], *team.Name)
 	}
+
+	cache.Set(cacheKey, resp, 10*time.Minute)
 
 	return resp, nil
 }
