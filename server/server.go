@@ -26,7 +26,6 @@ type GHEClient struct {
 	baseURL   string
 	uploadURL string
 	client    *github.Client
-	token     string
 }
 
 func (c *GHEClient) Login(ctx context.Context, token string) error {
@@ -38,7 +37,7 @@ func (c *GHEClient) Login(ctx context.Context, token string) error {
 	if err != nil {
 		return err
 	}
-	c.token = token
+	context.WithValue(ctx, "token", token)
 	c.client = client
 
 	return nil
@@ -137,7 +136,7 @@ func getUserInfo(github_base_url string, token string) (github.User, error) {
 }
 
 func (c *GHEClient) getTeams(ctx context.Context) (map[string][]string, error) {
-	cacheKey := fmt.Sprintf("%s-teams", c.token)
+	cacheKey := fmt.Sprintf("%s-teams", ctx.Value("token"))
 	cacheResult, found := cache.Get(cacheKey)
 	if found {
 		log.Printf("[DEBUG] cache hit value: %+v", cacheResult)
