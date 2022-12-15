@@ -196,7 +196,6 @@ func checkToken(baseUrl string, uploadUrl string, org string, req *http.Request)
 		return user, teams, errors.New("token is unsupported format (JWT).")
 	}
 
-	fmt.Printf("[DEBUG] areq: %+v\n", areq)
 	user, err = getUserInfo(baseUrl, areq.Spec.Token)
 	if err != nil {
 		return user, teams, errors.New(fmt.Sprintf("Failed to get user info: %s", err.Error()))
