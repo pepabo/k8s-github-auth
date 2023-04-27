@@ -65,7 +65,7 @@ func Start(baseUrl string, uploadUrl string, org string) error {
 				http.Error(rw, fmt.Sprintf("Failed to marshal: %s", err.Error()), 401)
 				return
 			}
-			log.Printf("[DEBUG] %+v", aresp)
+			log.Printf("[DEBUG] %+v", aresp.Status.User)
 			fmt.Fprint(rw, string(respBytes))
 		} else {
 			aresp := &AuthenticationResponse{
@@ -84,7 +84,7 @@ func Start(baseUrl string, uploadUrl string, org string) error {
 				http.Error(rw, fmt.Sprintf("Failed to marshal: %s", err.Error()), 401)
 				return
 			}
-			log.Printf("[DEBUG] %+v", aresp)
+			log.Printf("[DEBUG] %+v", aresp.Status.User)
 			fmt.Fprint(rw, string(respBytes))
 		}
 	})
