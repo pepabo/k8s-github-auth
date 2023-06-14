@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/google/go-github/v24/github"
 	gocache "github.com/patrickmn/go-cache"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
@@ -65,7 +65,6 @@ func Start(baseUrl string, uploadUrl string, org string) error {
 				http.Error(rw, fmt.Sprintf("Failed to marshal: %s", err.Error()), 401)
 				return
 			}
-			log.Printf("[DEBUG] %+v", aresp.Status.User)
 			fmt.Fprint(rw, string(respBytes))
 		} else {
 			aresp := &AuthenticationResponse{
@@ -84,14 +83,13 @@ func Start(baseUrl string, uploadUrl string, org string) error {
 				http.Error(rw, fmt.Sprintf("Failed to marshal: %s", err.Error()), 401)
 				return
 			}
-			log.Printf("[DEBUG] %+v", aresp.Status.User)
 			fmt.Fprint(rw, string(respBytes))
 		}
 	})
 
 	err := http.ListenAndServe("0.0.0.0:8443", nil)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 	return nil
 }
@@ -100,7 +98,7 @@ func getUserInfo(github_base_url string, token string) (github.User, error) {
 	cacheKey := fmt.Sprintf("%s-user", token)
 	cacheResult, found := cache.Get(cacheKey)
 	if found {
-		log.Println("[DEBUG] cache hit getUserInfo")
+		logrus.Debug("cache hit getUserInfo")
 		return cacheResult.(github.User), nil
 	}
 
@@ -142,7 +140,7 @@ func (c *GHEClient) getTeams(ctx context.Context) (map[string][]string, error) {
 	cacheKey := fmt.Sprintf("%s-teams", token)
 	cacheResult, found := cache.Get(cacheKey)
 	if found {
-		log.Println("[DEBUG] cache hit getTeams")
+		logrus.Debug("cache hit getTeams")
 		return cacheResult.(map[string][]string), nil
 	}
 
