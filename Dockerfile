@@ -10,7 +10,7 @@ RUN mkdir -p /go/{src,bin,pkg}
 
 ADD . /go/src/github.com/takaishi/k8s-github-auth
 WORKDIR /go/src/github.com/takaishi/k8s-github-auth
-RUN go get
+RUN go mod tidy
 RUN go build
 
 FROM alpine:latest as app

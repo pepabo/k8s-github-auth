@@ -43,9 +43,8 @@ func (c *GHEClient) Login(ctx context.Context, token string) error {
 }
 
 func Start(baseUrl string, uploadUrl string, org string) error {
-	log.Printf("[INFO] START: baseUrl: %s, uploadUrl: %s, org: %s", baseUrl, uploadUrl, org)
+	logrus.Infof("[INFO] START: baseUrl: %s, uploadUrl: %s, org: %s", baseUrl, uploadUrl, org)
 	http.HandleFunc("/webhook", func(rw http.ResponseWriter, req *http.Request) {
-		log.Println("[DEBUG] received")
 
 		user, teams, err := checkToken(baseUrl, uploadUrl, org, req)
 		if err != nil {
